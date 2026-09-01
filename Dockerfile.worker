@@ -1,0 +1,30 @@
+# Stage 1: Build
+FROM rust:1-slim-bookworm as builder
+
+WORKDIR /app
+
+# 👇 เพิ่มบรรทัดนี้: ปิด Incremental Compilation ช่วยประหยัด RAM ได้เยอะมาก
+ENV CARGO_INCREMENTAL=0
+ENV RUST_BACKTRACE=1
+
+# ลงเครื่องมือจำเป็น
+RUN apt-get update && apt-get install -y pkg-config libssl-dev
+
+COPY . .
+
+WORKDIR /app/worker
+
+# สั่ง Build ทีละไฟล์เหมือนเดิม (-j 1)
+RUN cargo build --release --jobs 1 --bin worker
+
+# Stage 2: Run
+FROM debian:bookworm-slim
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y libssl-dev ca-certificates && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /app/worker/target/release/worker /app/worker
+
+EXPOSE 8080
+
+CMD ["./worker"]

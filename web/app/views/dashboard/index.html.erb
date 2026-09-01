@@ -1,0 +1,411 @@
+<%= turbo_stream_from "sentiments" %>
+<%= turbo_stream_from "feed" %>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+
+<div class="min-h-screen bg-[#0b1221] text-slate-200 font-sans pb-10">
+  
+  <nav class="sticky top-0 z-50 bg-[#0b1221]/95 backdrop-blur border-b border-slate-800 shadow-sm">
+    <div class="max-w-[1600px] mx-auto px-4 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 bg-gradient-to-tr from-blue-600 to-cyan-500 rounded-lg flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/20 text-sm">฿</div>
+        <div>
+          <h1 class="font-bold text-base tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-cyan-400">
+            Thai Crypto Sentinel <span class="text-cyan-400">2026</span>
+          </h1>
+          <p class="text-[9px] text-slate-500">
+             <span id="last_updated" class="text-green-400 animate-pulse">Waiting for update...</span>
+          </p>
+        </div>
+      </div>
+      
+      <div class="flex items-center gap-4">
+         <button id="connect_wallet_btn" onclick="connectWallet()" 
+                 class="hidden md:flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 hover:border-cyan-500/50 px-4 py-1.5 rounded-full font-bold text-xs transition-all duration-300 group">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" class="w-4 h-4 group-hover:scale-110 transition-transform" alt="MetaMask">
+            <span id="wallet_address">Connect Wallet</span>
+         </button>
+
+         <div class="hidden md:flex items-center gap-2 px-3 py-1 bg-slate-800 rounded-full border border-slate-700">
+            <span class="text-[10px] text-slate-400">USDT Rate:</span>
+            <span id="thb_rate_display" class="text-xs font-bold text-yellow-400 font-mono">฿34.50</span>
+         </div>
+         <div class="flex items-center gap-2 text-[10px] font-bold bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-full border border-emerald-500/20">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            ONLINE
+         </div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-[1600px] mx-auto px-4 py-6">
+    
+    <div class="bg-[#131b2e] border border-slate-700 rounded-xl p-4 mb-4 shadow-lg relative overflow-hidden">
+       <div class="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+       <div class="relative z-10 flex flex-col md:flex-row gap-4 items-end">
+          <div class="flex-1 w-full">
+            <label class="block text-[10px] text-slate-400 mb-1">จำนวนเงินบาท (THB)</label>
+            <div class="relative">
+               <span class="absolute left-3 top-2 text-slate-500 text-xs">฿</span>
+               <input type="number" id="thb_input" value="10000" min="0" step="any" oninput="calculateConversion()" class="w-full bg-[#0b1221] border border-slate-600 rounded-lg py-1.5 pl-7 pr-3 text-sm text-white font-mono focus:border-cyan-500 outline-none transition">
+            </div>
+          </div>
+          <div class="flex-1 w-full">
+            <label class="block text-[10px] text-slate-400 mb-1">เลือกเหรียญ (หรือคลิกที่การ์ด/ตารางด้านล่าง)</label>
+            <select id="coin_select" onchange="handleCoinChange()" class="w-full bg-[#0b1221] border border-slate-600 rounded-lg py-1.5 px-3 text-sm text-white outline-none cursor-pointer">
+               <% @sentiments.each do |sentiment| %>
+                  <% next if sentiment.coin_symbol == "USDT_THB" %> 
+                  <option value="<%= sentiment.coin_symbol %>" 
+                          data-price="<%= sentiment.price %>"
+                          data-score="<%= sentiment.score %>">
+                      <%= sentiment.coin_symbol %>
+                  </option>
+               <% end %>
+            </select>
+          </div>
+          <div class="bg-cyan-900/20 border border-cyan-500/20 rounded-lg px-4 py-1.5 flex justify-between items-center h-[38px] min-w-[200px]">
+             <span class="text-[10px] text-cyan-300 mr-2">ได้รับ:</span>
+             <span id="conversion_result" class="text-sm font-bold text-cyan-400 font-mono">0.0000 BTC</span>
+          </div>
+       </div>
+    </div>
+
+    <div class="mb-6 bg-[#0f1522] border border-slate-800 rounded-xl p-1 overflow-hidden">
+        <div class="bg-gradient-to-r from-slate-900 to-slate-800 px-4 py-2 flex justify-between items-center rounded-lg border border-slate-700/50">
+            <div class="flex items-center gap-3">
+                <div class="p-1.5 bg-orange-500/10 rounded-lg border border-orange-500/20">
+                    <svg class="w-4 h-4 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+                </div>
+                <div>
+                    <h4 class="text-xs font-bold text-white flex items-center gap-2">
+                        On-Chain Verification
+                        <span class="px-1.5 py-0.5 rounded bg-slate-800 text-[9px] text-slate-400 border border-slate-700">Sepolia</span>
+                    </h4>
+                    <p class="text-[9px] text-slate-500">บันทึก AI Score ของเหรียญที่เลือกลง Blockchain</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <div class="text-right hidden sm:block">
+                    <div class="text-[9px] text-slate-400"><span id="target_coin_name">BTC</span> Score (DB)</div>
+                    <div class="text-xs font-bold text-cyan-400 font-mono" id="db_score">--/100</div>
+                </div>
+                <div class="h-8 w-px bg-slate-700 hidden sm:block"></div>
+                <div class="text-right hidden sm:block">
+                    <div class="text-[9px] text-slate-400">Blockchain Status</div>
+                    <div class="text-xs font-bold text-orange-400 font-mono flex items-center justify-end gap-1">
+                        <span id="chain_score">--</span> 
+                        <span id="verification_badge" class="hidden text-[8px] bg-green-500 text-black px-1 rounded font-bold">MATCHED</span>
+                    </div>
+                </div>
+                
+                <button onclick="recordToChain()" id="record_btn" disabled class="ml-2 bg-slate-800 text-slate-500 text-[10px] px-3 py-1.5 rounded border border-slate-700 cursor-not-allowed transition-all">
+                    Connect Wallet First
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <h3 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+       Market Sentiment
+       <span class="text-[9px] font-normal text-slate-500 bg-slate-800/50 px-2 py-0.5 rounded border border-slate-700">คลิกที่การ์ดเพื่อเลือกเหรียญ</span>
+    </h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-6" id="sentiment_cards">
+      <% if @sentiments.any? %>
+        <% @sentiments.each do |sentiment| %>
+          <% next if sentiment.coin_symbol == "USDT_THB" %> 
+          <div onclick="selectCoinBySymbol('<%= sentiment.coin_symbol %>')" class="cursor-pointer transition-transform hover:scale-[1.02] active:scale-95">
+             <%= render partial: "sentiment", locals: { sentiment: sentiment } %>
+          </div>
+        <% end %>
+      <% else %>
+         <div class="col-span-full py-8 text-center border border-dashed border-slate-800 rounded-xl">
+            <p class="text-slate-500 text-xs animate-pulse">Connecting to Worker...</p>
+         </div>
+      <% end %>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-8">
+      <div class="xl:col-span-2 bg-[#131b2e] rounded-xl border border-slate-800 overflow-hidden shadow-xl flex flex-col h-[350px] sticky top-20">
+        <div class="px-4 py-2 border-b border-slate-800 flex justify-between items-center bg-[#182035]">
+           <h3 class="font-bold text-white flex items-center gap-2 text-sm">
+             📈 <span id="chart_title" class="text-cyan-400">Bitcoin (BTC)</span>
+           </h3>
+           <div class="flex gap-2">
+              <span class="text-[9px] text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700">TradingView</span>
+           </div>
+        </div>
+        <div class="flex-1 bg-black relative">
+           <div class="tradingview-widget-container" style="height:100%;width:100%">
+              <div id="tradingview_chart" style="height:100%;width:100%"></div>
+           </div>
+        </div>
+      </div>
+
+      <div class="bg-[#131b2e] border border-slate-800 rounded-xl overflow-hidden shadow-xl h-[350px] flex flex-col">
+         <div class="px-4 py-2 border-b border-slate-800 flex justify-between items-center bg-[#182035]">
+            <h3 class="font-bold text-white text-sm">Live Feed</h3>
+            <div class="flex items-center gap-1.5 bg-green-900/20 px-1.5 py-0.5 rounded text-[10px] text-green-400 border border-green-900/30">
+               <span class="w-1 h-1 rounded-full bg-green-500 animate-pulse"></span>
+               <span>Syncing</span>
+            </div>
+         </div>
+         <div class="overflow-x-auto flex-1 custom-scrollbar">
+            <table class="w-full text-left border-collapse">
+               <thead class="sticky top-0 bg-[#0f172a] z-10 shadow-sm">
+                  <tr class="text-[10px] text-slate-500 border-b border-slate-700 whitespace-nowrap">
+                     <th class="px-3 py-2 font-bold uppercase w-6">#</th>
+                     <th class="px-3 py-2 font-bold uppercase">Coin</th>
+                     <th class="px-3 py-2 font-bold text-right uppercase">THB</th>
+                     <th class="px-3 py-2 font-bold text-right uppercase">24h</th>
+                     <th class="px-3 py-2 font-bold text-center uppercase">Score</th>
+                  </tr>
+               </thead>
+               <tbody id="feed_container" class="text-xs divide-y divide-slate-800 cursor-pointer hover:text-cyan-300 transition-colors">
+                  <% @sentiments.each do |sentiment| %>
+                     <% next if sentiment.coin_symbol == "USDT_THB" %> 
+                     <%= render partial: "feed_item", locals: { sentiment: sentiment } %>
+                  <% end %>
+               </tbody>
+            </table>
+         </div>
+      </div>
+    </div>
+
+    <footer class="mt-12 border-t border-slate-800 pt-12 pb-16">
+      <p class="text-[11px] text-slate-500 text-center leading-relaxed">
+        © 2026 Disorn Suppartum. High-Performance Hybrid Architecture Project. <br>
+        <span class="text-slate-400 font-medium">Rust + Rails + Solidity (DApp)</span>. 
+        <span class="text-rose-500 font-bold ml-1">Not financial advice.</span>
+      </p>
+    </footer>
+  </main>
+</div>
+
+<script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+<script>
+  const contractAddress = "0xA91a4158Cf70e7A8B519A67A34E5A9c7C4Fb9FB6"; 
+  const contractABI = [
+    "function recordScore(string symbol, uint256 score)",
+    "event ScoreRecorded(string symbol, uint256 score, address recorder, uint256 timestamp)"
+  ];
+  const SEPOLIA_CHAIN_ID = "0xaa36a7";
+
+  let currentThbRate = 34.5;
+  let userWallet = null;
+  let provider = null;
+  let signer = null;
+  let sentimentContract = null;
+
+  async function connectWallet() {
+    if (typeof window.ethereum !== 'undefined') {
+      try {
+        try {
+            await window.ethereum.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: SEPOLIA_CHAIN_ID }],
+            });
+        } catch (switchError) {
+            console.error("Please switch to Sepolia Network manually in MetaMask");
+        }
+
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        signer = provider.getSigner();
+        userWallet = await signer.getAddress();
+        
+        sentimentContract = new ethers.Contract(contractAddress, contractABI, signer);
+
+        const shortAddress = userWallet.substring(0, 6) + "..." + userWallet.substring(userWallet.length - 4);
+        const btn = document.getElementById('connect_wallet_btn');
+        document.getElementById('wallet_address').innerText = shortAddress;
+        btn.classList.remove('bg-slate-800', 'border-slate-700', 'text-slate-300');
+        btn.classList.add('bg-emerald-500/10', 'border-emerald-500/50', 'text-emerald-400');
+        
+        const recordBtn = document.getElementById('record_btn');
+        recordBtn.disabled = false;
+        recordBtn.innerText = "Record to Chain";
+        recordBtn.classList.remove('bg-slate-800', 'text-slate-500', 'cursor-not-allowed');
+        recordBtn.classList.add('bg-orange-500', 'text-white', 'hover:bg-orange-600', 'shadow-lg', 'shadow-orange-500/20');
+
+      } catch (error) {
+        console.error("Connection Error:", error);
+        alert("เชื่อมต่อไม่สำเร็จ: " + error.message);
+      }
+    } else {
+      alert("ไม่พบ MetaMask! กรุณาติดตั้งก่อนใช้งาน DApp");
+    }
+  }
+
+  // ✅ ฟังก์ชันใหม่: เปลี่ยนเหรียญเมื่อคลิกที่ไหนก็ได้ (Card/Table/Dropdown)
+  function selectCoinBySymbol(symbol) {
+      const select = document.getElementById('coin_select');
+      
+      // วนลูปหา option ที่ตรงกับ symbol
+      for (let i = 0; i < select.options.length; i++) {
+          if (select.options[i].value === symbol) {
+              select.selectedIndex = i; // เปลี่ยนค่า Dropdown
+              handleCoinChange(); // สั่งอัปเดตหน้าจอ
+              
+              // เลื่อนหน้าจอขึ้นไปบนสุด (Smooth Scroll)
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+              return;
+          }
+      }
+  }
+
+  function handleCoinChange() {
+      calculateConversion(); 
+      
+      const select = document.getElementById('coin_select');
+      if (!select || select.options.length === 0 || select.selectedIndex < 0) return;
+      const selectedOption = select.options[select.selectedIndex];
+      if (!selectedOption) return;
+      
+      const coinSymbol = select.value;
+      const coinScore = selectedOption.getAttribute('data-score') || "--"; 
+
+      const targetCoinEl = document.getElementById('target_coin_name');
+      if (targetCoinEl) targetCoinEl.innerText = coinSymbol;
+      const dbScoreEl = document.getElementById('db_score');
+      if (dbScoreEl) dbScoreEl.innerText = coinScore + "/100";
+      
+      const chainScoreEl = document.getElementById('chain_score');
+      if (chainScoreEl) chainScoreEl.innerText = "--";
+      const badgeEl = document.getElementById('verification_badge');
+      if (badgeEl) badgeEl.classList.add('hidden');
+      
+      const btn = document.getElementById('record_btn');
+      if (btn && !btn.disabled) {
+          btn.innerText = "Record to Chain";
+          btn.className = "ml-2 bg-orange-500 text-white hover:bg-orange-600 shadow-lg shadow-orange-500/20 px-3 py-1.5 rounded text-[10px] transition-all";
+      }
+
+      if (coinSymbol) loadChart(coinSymbol);
+  }
+
+  // ✅ Listener สำหรับตาราง Live Feed (กดแถวไหน เปลี่ยนเหรียญตามแถวนั้น)
+  document.addEventListener('DOMContentLoaded', () => {
+      const feedContainer = document.getElementById('feed_container');
+      if(feedContainer) {
+          feedContainer.addEventListener('click', (e) => {
+              // หาว่ากดโดนแถว (TR) ไหน
+              const row = e.target.closest('tr');
+              if(row) {
+                  // ลองเช็คว่าแถวนี้มีชื่อเหรียญไหม โดยเทียบกับ Dropdown
+                  const select = document.getElementById('coin_select');
+                  for(let opt of select.options) {
+                      // ถ้าข้อความในแถว มีชื่อเหรียญอยู่ (เช่นมีคำว่า "BTC")
+                      if(row.innerText.includes(opt.value)) {
+                          selectCoinBySymbol(opt.value);
+                          break;
+                      }
+                  }
+              }
+          });
+      }
+  });
+
+  async function recordToChain() {
+      if(!sentimentContract) return;
+
+      const select = document.getElementById('coin_select');
+      const selectedOption = select.options[select.selectedIndex];
+      const coinSymbol = select.value;
+      const coinScore = parseInt(selectedOption.getAttribute('data-score')) || 0;
+
+      const btn = document.getElementById('record_btn');
+      
+      try {
+          btn.disabled = true;
+          btn.innerHTML = `<span class="animate-spin inline-block mr-2">⟳</span> Confirming...`;
+          
+          const tx = await sentimentContract.recordScore(coinSymbol, coinScore, { 
+              gasLimit: 300000 
+          });
+          
+          console.log("Tx:", tx.hash);
+          btn.innerHTML = `<span class="animate-spin inline-block mr-2">⟳</span> Mining...`;
+
+          await tx.wait();
+
+          btn.innerHTML = `Success!`;
+          btn.classList.replace('bg-orange-500', 'bg-green-500');
+          document.getElementById('chain_score').innerText = coinScore + "/100";
+          document.getElementById('verification_badge').classList.remove('hidden');
+          
+          alert(`✅ บันทึกสำเร็จ!\nCoin: ${coinSymbol}\nScore: ${coinScore}\nTx: ${tx.hash}`);
+
+          setTimeout(() => {
+              btn.disabled = false;
+              btn.innerText = "Record Again";
+              btn.classList.replace('bg-green-500', 'bg-slate-700');
+          }, 5000);
+
+      } catch (error) {
+          console.error("Blockchain Error:", error);
+          btn.innerHTML = "Failed";
+          btn.disabled = false;
+          alert("เกิดข้อผิดพลาด: " + (error.reason || error.message));
+      }
+  }
+
+  window.addEventListener('load', async () => {
+      handleCoinChange(); 
+      setTimeout(updateTablePrices, 100);
+  });
+
+  function calculateConversion() {
+    const thbInput = document.getElementById('thb_input');
+    const thb = thbInput ? (parseFloat(thbInput.value) || 0) : 0;
+    const select = document.getElementById('coin_select');
+    if (!select || select.options.length === 0 || select.selectedIndex < 0) return;
+    const selectedOption = select.options[select.selectedIndex];
+    if (!selectedOption) return;
+    const coinSymbol = select.value;
+    let priceUsd = parseFloat(selectedOption.getAttribute('data-price')) || 0;
+    let priceThb = priceUsd * currentThbRate;
+    const resultEl = document.getElementById('conversion_result');
+    if (priceThb > 0 && resultEl) {
+      let result = thb / priceThb;
+      let decimals = priceUsd < 1 ? 2 : 6; 
+      if (result > 100) decimals = 2;
+      resultEl.innerText = result.toLocaleString('en-US', {minimumFractionDigits: decimals, maximumFractionDigits: decimals}) + " " + coinSymbol;
+    }
+  }
+
+  function updateTablePrices() {
+    const priceElements = document.querySelectorAll('.dynamic-thb-price');
+    priceElements.forEach(el => {
+      const usdPrice = parseFloat(el.getAttribute('data-original-usd'));
+      if (!isNaN(usdPrice)) {
+        const realThb = usdPrice * currentThbRate;
+        el.innerText = "฿" + realThb.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      }
+    });
+  }
+
+  function loadChart(symbol) {
+     document.getElementById('chart_title').innerText = symbol + " (USDT)";
+     document.getElementById('tradingview_chart').innerHTML = ""; 
+     new TradingView.widget({
+        "autosize": true,
+        "symbol": "BINANCE:" + symbol + "USDT",
+        "interval": "D",
+        "timezone": "Asia/Bangkok",
+        "theme": "dark",
+        "style": "1",
+        "locale": "th_TH",
+        "toolbar_bg": "#f1f3f6",
+        "enable_publishing": false,
+        "hide_top_toolbar": false,
+        "save_image": false,
+        "container_id": "tradingview_chart"
+     });
+  }
+
+  document.addEventListener("turbo:before-stream-render", function(event) {
+    const now = new Date();
+    document.getElementById('last_updated').innerText = "Updated: " + now.toLocaleTimeString();
+  });
+</script>

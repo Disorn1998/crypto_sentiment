@@ -1,0 +1,40 @@
+databases:
+  - name: crypto_db
+    databaseName: crypto_production
+    user: crypto_user
+    plan: free
+
+services:
+  # 1. ส่วนของ Web (Rails)
+  - type: web
+    name: crypto-web
+    env: docker
+    plan: free
+    dockerfilePath: ./web/Dockerfile  # 👈 แก้เป็น ./web/Dockerfile
+    dockerContext: ./web              # 👈 เพิ่มบรรทัดนี้ เพื่อบอกว่าให้เริ่มดูไฟล์จากโฟลเดอร์ web
+    envVars:
+      - key: SECRET_KEY_BASE
+        generateValue: true
+      - key: RAILS_MASTER_KEY
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: crypto_db
+          property: connectionString
+      - key: RAILS_ENV
+        value: production
+    # ลบบรรทัด startCommand ทิ้งไปแล้วตามกฎของ Render
+
+  # 2. ส่วนของ Worker (Rust)
+  - type: web  
+    name: crypto-worker
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile.worker
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: crypto_db
+          property: connectionString
+      - key: PORT
+        value: 8080 

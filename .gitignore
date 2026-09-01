@@ -1,0 +1,19 @@
+﻿# Git ignore rules
+.history/
+.vscode/
+.idea/
+.DS_Store
+
+# Rails
+web/log/
+web/tmp/
+web/storage/
+web/public/assets/
+web/config/master.key
+web/config/credentials/*.key
+.env
+.env.*
+
+# Rust
+worker/target/
+target/

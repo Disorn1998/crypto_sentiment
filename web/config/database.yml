@@ -1,0 +1,30 @@
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  # ส่วนที่สำคัญที่สุด: เชื่อมต่อไปที่ Service ชื่อ db
+  host: db
+  username: myuser
+  password: mypassword
+  # บรรทัดนี้ต้องเว้นวรรคให้ตรงกับ password ด้านบน
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+
+development:
+  <<: *default
+  database: crypto_app_development
+
+test:
+  <<: *default
+  database: crypto_app_test
+
+production:
+  primary: &primary_production
+    <<: *default
+    url: <%= ENV["DATABASE_URL"] %>
+  
+  # 👇 เพิ่ม 3 ส่วนนี้เข้าไปครับ เพื่อบอกให้ Cache, Queue, Cable ใช้ DB เดียวกันให้หมด
+  cache:
+    <<: *primary_production
+  queue:
+    <<: *primary_production
+  cable:
+    <<: *primary_production
